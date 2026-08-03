@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { X, Lock, KeyRound, Tag, Upload, Megaphone, ShieldCheck, LogOut, CheckCircle2 } from 'lucide-react';
+import { X, Lock, KeyRound, Tag, Upload, Megaphone, ShieldCheck, LogOut, CheckCircle2, Mail, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { POSTER_FOLDERS } from '../data/initialData';
 
 interface AdminModalProps {
   isOpen: boolean;
   isAdmin: boolean;
+  isLoading?: boolean;
   onClose: () => void;
-  onLogin: (passcode: string) => boolean;
+  onLogin: (email: string, password: string) => Promise<boolean>;
   onLogout: () => void;
   onAddPromotion: (promo: {
     title: string;
@@ -28,6 +29,7 @@ interface AdminModalProps {
 export const AdminModal: React.FC<AdminModalProps> = ({
   isOpen,
   isAdmin,
+  isLoading = false,
   onClose,
   onLogin,
   onLogout,
@@ -38,9 +40,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  // Login form state
-  const [passcode, setPasscode] = useState('');
-  const [loginError, setLoginError] = useState(false);
+  // Login form state (Supabase Auth)
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Promo form state
   const [promoTitle, setPromoTitle] = useState('');
@@ -58,16 +63,41 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   // Banner form state
   const [bannerInput, setBannerInput] = useState('');
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = onLogin(passcode);
-    if (!success) {
-      setLoginError(true);
-      onShowToast('Clave incorrecta', 'Intenta con: enlace2026', 'error');
-    } else {
-      setLoginError(false);
-      setPasscode('');
-      onShowToast('Modo Administración Desbloqueado', 'Ahora puedes agregar o eliminar promociones y posters.');
+    setLoginError('');
+    setIsSubmitting(true);
+
+    // Validar campos
+    if (!email.trim()) {
+      setLoginError('El email es requerido');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!password) {
+      setLoginError('La contraseña es requerida');
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const success = await onLogin(email, password);
+      if (success) {
+        setLoginError('');
+        setEmail('');
+        setPassword('');
+        onShowToast('✅ Acceso Concedido', 'Sesión de administración iniciada');
+      } else {
+        setLoginError('Email o contraseña incorrectos');
+        onShowToast('❌ Error de Autenticación', 'Verifica tus credenciales', 'error');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      setLoginError(message);
+      onShowToast('❌ Error', message, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -78,7 +108,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       reader.onload = (event) => {
         if (event.target?.result) {
           callback(event.target.result as string);
-          onShowToast('Imagen procesada', 'Archivo cargado con éxito.');
+          onShowToast('✅ Imagen procesada', 'Archivo cargado con éxito.');
         }
       };
       reader.readAsDataURL(file);
@@ -88,7 +118,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const handlePromoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!promoTitle || !promoPrice || !promoDesc) {
-      onShowToast('Campos incompletos', 'Completa título, precio y descripción.', 'error');
+      onShowToast('⚠️ Campos incompletos', 'Completa título, precio y descripción.', 'error');
       return;
     }
 
@@ -104,13 +134,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setPromoTitle('');
     setPromoDesc('');
     setPromoPrice('');
-    onShowToast('¡Promoción guardada en Supabase!', promoTitle);
+    onShowToast('✅ Promoción guardada', promoTitle);
   };
 
   const handlePosterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!posterTitle) {
-      onShowToast('Campos incompletos', 'Ingresa el título del poster.', 'error');
+      onShowToast('⚠️ Campos incompletos', 'Ingresa el título del poster.', 'error');
       return;
     }
 
@@ -121,7 +151,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     });
 
     setPosterTitle('');
-    onShowToast('¡Poster guardado en Supabase!', posterTitle);
+    onShowToast('✅ Poster guardado', posterTitle);
   };
 
   const handleBannerSubmit = (e: React.FormEvent) => {
@@ -129,7 +159,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     if (!bannerInput) return;
     onUpdateBanner(bannerInput);
     setBannerInput('');
-    onShowToast('Banner actualizado', 'Las novedades se reflejarán en la barra superior.');
+    onShowToast('✅ Banner actualizado', 'Los cambios se reflejarán en la barra superior.');
   };
 
   return (
@@ -149,7 +179,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* STEP 1: PASSWORD AUTHENTICATION DIALOG (Fase 4) */}
+        {/* STEP 1: SUPABASE AUTH LOGIN */}
         {!isAdmin ? (
           <div className="space-y-6 text-center py-4">
             <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white mx-auto shadow-xl shadow-orange-500/20">
@@ -157,261 +187,230 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             </div>
 
             <div>
-              <h3 className="font-serif font-bold text-2xl text-slate-900">Acceso de Administración</h3>
+              <h3 className="font-serif font-bold text-2xl text-slate-900">Panel de Administración</h3>
               <p className="text-slate-500 text-sm mt-1">
-                Ingresa la clave de seguridad para activar las herramientas de gestión de contenidos.
+                Inicia sesión con tu email y contraseña de Supabase
               </p>
             </div>
 
             <form onSubmit={handleLoginSubmit} className="space-y-4 max-w-sm mx-auto">
+              {/* Email */}
               <div>
-                <input
-                  type="password"
-                  value={passcode}
-                  onChange={(e) => setPasscode(e.target.value)}
-                  placeholder="Introduce la clave de acceso"
-                  className={`w-full px-4 py-3.5 rounded-2xl border text-center font-mono text-lg focus:outline-none focus:ring-2 transition ${
-                    loginError
-                      ? 'border-red-400 ring-red-400 bg-red-50'
-                      : 'border-slate-200 focus:ring-orange-500 focus:border-transparent bg-slate-50'
-                  }`}
-                  autoFocus
-                />
-                <p className="text-[11px] text-slate-400 mt-2">
-                  💡 Clave por defecto: <code className="bg-slate-100 px-1.5 py-0.5 rounded font-bold text-slate-700">enlace2026</code>
-                </p>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="jcguerrero500@gmail.com"
+                    disabled={isSubmitting}
+                    className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50 disabled:bg-slate-100"
+                  />
+                </div>
               </div>
 
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Contraseña</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Tu contraseña segura"
+                    disabled={isSubmitting}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50 disabled:bg-slate-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Error message */}
+              {loginError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                  {loginError}
+                </div>
+              )}
+
+              {/* Submit button */}
               <button
                 type="submit"
-                className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-2xl shadow-lg transition flex items-center justify-center gap-2"
+                disabled={isSubmitting}
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-semibold rounded-2xl shadow-lg transition flex items-center justify-center gap-2"
               >
-                <Lock className="w-4 h-4 text-amber-400" />
-                <span>Desbloquear Panel</span>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Verificando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4" />
+                    <span>Iniciar Sesión</span>
+                  </>
+                )}
               </button>
             </form>
+
+            <div className="text-xs text-slate-500 pt-2 border-t border-slate-100">
+              <p>🔒 Autenticación segura con Supabase</p>
+            </div>
           </div>
         ) : (
-          /* STEP 2: UNLOCKED ADMIN PANEL */
+          /* STEP 2: ADMIN PANEL UNLOCKED */
           <div className="space-y-8 max-h-[80vh] overflow-y-auto pr-1">
             {/* Admin Header */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                  <ShieldCheck className="w-6 h-6" />
+                  <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-serif font-bold text-xl text-slate-900">Panel de Control Administrador</h3>
-                  <p className="text-emerald-600 font-medium text-xs flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 inline" />
-                    <span>Conectado a Supabase REST API</span>
-                  </p>
+                  <div className="font-semibold text-slate-900">Panel Admin</div>
+                  <div className="text-xs text-emerald-600">✅ Sesión activa</div>
                 </div>
               </div>
-
               <button
                 onClick={onLogout}
-                className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
-                title="Cerrar sesión de administración"
+                className="p-2 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition"
               >
-                <LogOut className="w-4 h-4" />
-                <span>Bloquear</span>
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
 
-            {/* FORM 1: AGREGAR PROMOCION */}
-            <div className="space-y-4 bg-slate-50/80 p-5 rounded-2xl border border-slate-100">
-              <h4 className="font-semibold text-slate-900 text-sm flex items-center gap-2 text-orange-600">
-                <Tag className="w-4 h-4" />
-                <span>Agregar Nueva Promoción en Supabase</span>
+            {/* TAB 1: Add Promotion */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-slate-900 flex items-center gap-2">
+                <Tag className="w-4 h-4 text-orange-600" />
+                Agregar Promoción
               </h4>
-
               <form onSubmit={handlePromoSubmit} className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Título</label>
-                    <input
-                      type="text"
-                      value={promoTitle}
-                      onChange={(e) => setPromoTitle(e.target.value)}
-                      placeholder="Ej: Caribe VIP 2x1"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Precio</label>
-                    <input
-                      type="text"
-                      value={promoPrice}
-                      onChange={(e) => setPromoPrice(e.target.value)}
-                      placeholder="Ej: Desde $1.199.000 COP"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Badge</label>
-                    <input
-                      type="text"
-                      value={promoBadge}
-                      onChange={(e) => setPromoBadge(e.target.value)}
-                      placeholder="Ej: -20% DESC"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Categoría</label>
-                    <select
-                      value={promoCategory}
-                      onChange={(e) => setPromoCategory(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
-                    >
-                      <option value="caribe">Caribe</option>
-                      <option value="medellin">Medellín</option>
-                      <option value="bogota">Bogotá</option>
-                      <option value="eje-cafetero">Eje Cafetero</option>
-                      <option value="internacional">Internacional</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Descripción</label>
-                  <textarea
-                    rows={2}
-                    value={promoDesc}
-                    onChange={(e) => setPromoDesc(e.target.value)}
-                    placeholder="Detalles de lo que incluye el paquete..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Imagen del Paquete</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={promoImage}
-                      onChange={(e) => setPromoImage(e.target.value)}
-                      placeholder="URL de la imagen o selecciona archivo local"
-                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
-                    />
-                    <label className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl text-xs cursor-pointer flex items-center gap-1">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Subir</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileUpload(e, setPromoImage)}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-xl text-xs shadow transition"
-                >
-                  + Guardar Promoción en Supabase
-                </button>
-              </form>
-            </div>
-
-            {/* FORM 2: SUBIR POSTER */}
-            <div className="space-y-4 bg-slate-50/80 p-5 rounded-2xl border border-slate-100">
-              <h4 className="font-semibold text-slate-900 text-sm flex items-center gap-2 text-teal-600">
-                <Upload className="w-4 h-4" />
-                <span>Subir Nuevo Poster por Destino</span>
-              </h4>
-
-              <form onSubmit={handlePosterSubmit} className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Título Poster</label>
-                    <input
-                      type="text"
-                      value={posterTitle}
-                      onChange={(e) => setPosterTitle(e.target.value)}
-                      placeholder="Ej: Cartagena Colonial"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Carpeta de Destino</label>
-                    <select
-                      value={posterFolder}
-                      onChange={(e) => setPosterFolder(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
-                    >
-                      {POSTER_FOLDERS.map((f) => (
-                        <option key={f.name} value={f.name}>
-                          {f.label} ({f.name})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Imagen Poster</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={posterImage}
-                      onChange={(e) => setPosterImage(e.target.value)}
-                      placeholder="URL de la imagen o selecciona archivo"
-                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
-                    />
-                    <label className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl text-xs cursor-pointer flex items-center gap-1">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Subir</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileUpload(e, setPosterImage)}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl text-xs shadow transition"
-                >
-                  + Guardar Poster en Supabase
-                </button>
-              </form>
-            </div>
-
-            {/* FORM 3: BANNER SUPERIOR */}
-            <div className="space-y-3 bg-slate-50/80 p-5 rounded-2xl border border-slate-100">
-              <h4 className="font-semibold text-slate-900 text-sm flex items-center gap-2 text-purple-600">
-                <Megaphone className="w-4 h-4" />
-                <span>Actualizar Anuncio Superior</span>
-              </h4>
-
-              <form onSubmit={handleBannerSubmit} className="space-y-3">
                 <input
                   type="text"
+                  placeholder="Título"
+                  value={promoTitle}
+                  onChange={(e) => setPromoTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <textarea
+                  placeholder="Descripción"
+                  value={promoDesc}
+                  onChange={(e) => setPromoDesc(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Precio (ej: $1.299.000)"
+                  value={promoPrice}
+                  onChange={(e) => setPromoPrice(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Badge (ej: -20% DESC)"
+                  value={promoBadge}
+                  onChange={(e) => setPromoBadge(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <select
+                  value={promoCategory}
+                  onChange={(e) => setPromoCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="caribe">Caribe</option>
+                  <option value="medellin">Medellín</option>
+                  <option value="bogota">Bogotá</option>
+                </select>
+                <div className="flex gap-2">
+                  <label className="flex-1 px-3 py-2 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-orange-400 text-sm text-slate-600 hover:text-orange-600 flex items-center justify-center gap-2 transition">
+                    <Upload className="w-4 h-4" />
+                    <span>Subir imagen</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e, setPromoImage)}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg text-sm transition"
+                >
+                  Guardar Promoción
+                </button>
+              </form>
+            </div>
+
+            {/* TAB 2: Add Poster */}
+            <div className="space-y-4 border-t pt-4">
+              <h4 className="font-semibold text-slate-900 flex items-center gap-2">
+                <Upload className="w-4 h-4 text-blue-600" />
+                Agregar Poster
+              </h4>
+              <form onSubmit={handlePosterSubmit} className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Título"
+                  value={posterTitle}
+                  onChange={(e) => setPosterTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <select
+                  value={posterFolder}
+                  onChange={(e) => setPosterFolder(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {POSTER_FOLDERS.map((f) => (
+                    <option key={f.name} value={f.name}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+                <label className="flex-1 px-3 py-2 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 text-sm text-slate-600 hover:text-blue-600 flex items-center justify-center gap-2 transition">
+                  <Upload className="w-4 h-4" />
+                  <span>Seleccionar imagen</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileUpload(e, setPosterImage)}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition"
+                >
+                  Guardar Poster
+                </button>
+              </form>
+            </div>
+
+            {/* TAB 3: Edit Banner */}
+            <div className="space-y-4 border-t pt-4">
+              <h4 className="font-semibold text-slate-900 flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-purple-600" />
+                Editar Banner
+              </h4>
+              <form onSubmit={handleBannerSubmit} className="space-y-3">
+                <textarea
+                  placeholder="Texto del banner (acepta HTML básico)"
                   value={bannerInput}
                   onChange={(e) => setBannerInput(e.target.value)}
-                  placeholder="Ej: 🌟 OFERTA SPECIAL: 20% en paquetes al Caribe hasta el 31 de Agosto"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
                 <button
                   type="submit"
-                  className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs transition"
+                  className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg text-sm transition"
                 >
                   Actualizar Banner
                 </button>

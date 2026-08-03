@@ -1,4 +1,4 @@
-import { supabaseFetch } from '../lib/supabase';
+import { supabase, supabaseFetch } from '../lib/supabase';
 import { ContactMessage, Poster, Promotion } from '../types';
 import { INITIAL_POSTERS, INITIAL_PROMOTIONS } from '../data/initialData';
 import { validateContactForm, validatePromotion, validateEmail } from '../lib/validators';
@@ -56,53 +56,52 @@ export async function createPromotionInSupabase(
   };
 
   try {
-    const { data, error } = await supabaseFetch<Promotion[]>('promotions', {
-      method: 'POST',
-      body: JSON.stringify(newPromoData),
-    });
+    // Use Supabase client (automatically includes JWT if user is authenticated)
+    const { data, error } = await supabase
+      .from('promotions')
+      .insert([newPromoData])
+      .select();
 
-    if (!error && data && data.length > 0) {
-      const created = data[0];
+    if (error) {
+      console.error('Supabase error creating promotion:', error.message);
+      return { promotion: null, error: new Error(error.message) };
+    }
+
+    if (data && data.length > 0) {
+      const created = data[0] as Promotion;
       const current = getCached<Promotion[]>(LOCAL_PROMOS_KEY, INITIAL_PROMOTIONS);
       setCache(LOCAL_PROMOS_KEY, [created, ...current]);
       return { promotion: created, error: null };
     }
-
-    if (error) {
-      console.warn('Supabase insert promo error:', error.message);
-    }
   } catch (err) {
     console.error('Failed to create promotion in Supabase:', err);
+    return { promotion: null, error: err instanceof Error ? err : new Error(String(err)) };
   }
 
-  // Fallback local creation if table or connection is offline
-  const fallbackPromo: Promotion = {
-    ...newPromoData,
-    id: Date.now().toString(),
-  };
-  const current = getCached<Promotion[]>(LOCAL_PROMOS_KEY, INITIAL_PROMOTIONS);
-  setCache(LOCAL_PROMOS_KEY, [fallbackPromo, ...current]);
-  return { promotion: fallbackPromo, error: null };
+  return { promotion: null, error: new Error('No data returned') };
 }
 
 export async function deletePromotionFromSupabase(id: string | number): Promise<boolean> {
-  let success = false;
   try {
-    const { error } = await supabaseFetch(`promotions?id=eq.${id}`, {
-      method: 'DELETE',
-    });
-    if (!error) {
-      success = true;
+    const { error } = await supabase
+      .from('promotions')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting promotion:', error.message);
+      return false;
     }
+
+    // Update local cache
+    const current = getCached<Promotion[]>(LOCAL_PROMOS_KEY, INITIAL_PROMOTIONS);
+    const filtered = current.filter((p) => String(p.id) !== String(id));
+    setCache(LOCAL_PROMOS_KEY, filtered);
+    return true;
   } catch (err) {
     console.error('Error deleting promotion from Supabase:', err);
+    return false;
   }
-
-  // Update local cache regardless
-  const current = getCached<Promotion[]>(LOCAL_PROMOS_KEY, INITIAL_PROMOTIONS);
-  const filtered = current.filter((p) => String(p.id) !== String(id));
-  setCache(LOCAL_PROMOS_KEY, filtered);
-  return true;
 }
 
 // ================= POSTERS =================
@@ -133,44 +132,50 @@ export async function createPosterInSupabase(
   };
 
   try {
-    const { data, error } = await supabaseFetch<Poster[]>('posters', {
-      method: 'POST',
-      body: JSON.stringify(newPosterData),
-    });
+    const { data, error } = await supabase
+      .from('posters')
+      .insert([newPosterData])
+      .select();
 
-    if (!error && data && data.length > 0) {
-      const created = data[0];
+    if (error) {
+      console.error('Supabase error creating poster:', error.message);
+      return { poster: null, error: new Error(error.message) };
+    }
+
+    if (data && data.length > 0) {
+      const created = data[0] as Poster;
       const current = getCached<Poster[]>(LOCAL_POSTERS_KEY, INITIAL_POSTERS);
       setCache(LOCAL_POSTERS_KEY, [created, ...current]);
       return { poster: created, error: null };
     }
   } catch (err) {
     console.error('Failed to create poster in Supabase:', err);
+    return { poster: null, error: err instanceof Error ? err : new Error(String(err)) };
   }
 
-  // Fallback local creation
-  const fallbackPoster: Poster = {
-    ...newPosterData,
-    id: Date.now().toString(),
-  };
-  const current = getCached<Poster[]>(LOCAL_POSTERS_KEY, INITIAL_POSTERS);
-  setCache(LOCAL_POSTERS_KEY, [fallbackPoster, ...current]);
-  return { poster: fallbackPoster, error: null };
+  return { poster: null, error: new Error('No data returned') };
 }
 
 export async function deletePosterFromSupabase(id: string | number): Promise<boolean> {
   try {
-    await supabaseFetch(`posters?id=eq.${id}`, {
-      method: 'DELETE',
-    });
+    const { error } = await supabase
+      .from('posters')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting poster:', error.message);
+      return false;
+    }
+
+    const current = getCached<Poster[]>(LOCAL_POSTERS_KEY, INITIAL_POSTERS);
+    const filtered = current.filter((p) => String(p.id) !== String(id));
+    setCache(LOCAL_POSTERS_KEY, filtered);
+    return true;
   } catch (err) {
     console.error('Error deleting poster from Supabase:', err);
+    return false;
   }
-
-  const current = getCached<Poster[]>(LOCAL_POSTERS_KEY, INITIAL_POSTERS);
-  const filtered = current.filter((p) => String(p.id) !== String(id));
-  setCache(LOCAL_POSTERS_KEY, filtered);
-  return true;
 }
 
 // ================= CONTACTS =================

@@ -24,7 +24,7 @@ import {
   createPosterInSupabase,
   deletePosterFromSupabase,
 } from './services/api';
-import { setAdminToken, getAdminToken, clearAdminToken, isAdminTokenValid } from './lib/auth';
+import { supabase } from './lib/supabase';
 
 export default function App() {
   // Supabase state
@@ -33,15 +33,9 @@ export default function App() {
   const [promosLoading, setPromosLoading] = useState<boolean>(true);
   const [postersLoading, setPostersLoading] = useState<boolean>(true);
 
-  // Admin auth state
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    try {
-      return isAdminTokenValid();
-    } catch (err) {
-      console.error('Error checking admin token:', err);
-      return false;
-    }
-  });
+  // Admin auth state (Supabase Auth)
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [adminEmail, setAdminEmail] = useState<string>('');
 
   // Banner text
   const [bannerText, setBannerText] = useState<string>(() => {
@@ -81,7 +75,37 @@ export default function App() {
     }, 4000);
   };
 
-  // Initial Supabase Data Fetching (Fase 1)
+  // Check authentication state on load
+  useEffect(() => {
+    const checkAuthState = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setIsAdmin(true);
+          setAdminEmail(session.user.email || '');
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+      }
+    };
+
+    checkAuthState();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setIsAdmin(true);
+        setAdminEmail(session.user.email || '');
+      } else {
+        setIsAdmin(false);
+        setAdminEmail('');
+      }
+    });
+
+    return () => subscription?.unsubscribe();
+  }, []);
+
+  // Initial Supabase Data Fetching
   useEffect(() => {
     async function loadData() {
       setPromosLoading(true);
@@ -102,37 +126,42 @@ export default function App() {
     loadData();
   }, []);
 
-  // Admin Login Handler
-  const handleAdminLogin = (passcode: string): boolean => {
-    const correctPasscode = import.meta.env.VITE_ADMIN_PASSCODE || 'EnlaceSeguro2026';
-    const isValid = passcode.trim() === correctPasscode;
+  // Admin Login Handler (Supabase Auth)
+  const handleAdminLogin = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-    if (isValid) {
-      try {
-        const token = btoa(passcode + Date.now());
-        setAdminToken(token);
-        setIsAdmin(true);
-        showToastNotification('✅ Acceso Concedido', 'Modo de administración activado.');
-        return true;
-      } catch (err) {
-        console.error('Error setting admin token:', err);
-        showToastNotification('Error', 'No se pudo iniciar sesión de admin.', 'error');
+      if (error) {
+        console.error('Supabase auth error:', error.message);
         return false;
       }
-    } else {
-      showToastNotification('❌ Acceso Denegado', 'Contraseña incorrecta.', 'error');
+
+      if (data.session) {
+        setIsAdmin(true);
+        setAdminEmail(email);
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.error('Login error:', err);
       return false;
     }
   };
 
-  const handleAdminLogout = () => {
+  const handleAdminLogout = async () => {
     try {
-      clearAdminToken();
+      await supabase.auth.signOut();
       setIsAdmin(false);
-      showToastNotification('Sesión cerrada', 'Modo de administración bloqueado.');
+      setAdminEmail('');
+      showToastNotification('✅ Sesión cerrada', 'Has sido desconectado del panel de administración.');
     } catch (err) {
       console.error('Error logging out:', err);
       setIsAdmin(false);
+      setAdminEmail('');
     }
   };
 
