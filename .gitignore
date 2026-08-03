@@ -6,3 +6,21 @@ coverage/
 *.log
 .env*
 !.env.example
+!.env.staging
+
+# Credentials (NEVER commit)
+.env.local
+.env.*.local
+*.pem
+.vercel
+.vercel.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db

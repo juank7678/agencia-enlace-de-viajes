@@ -24,6 +24,7 @@ import {
   createPosterInSupabase,
   deletePosterFromSupabase,
 } from './services/api';
+import { setAdminToken, getAdminToken, clearAdminToken, isAdminTokenValid } from './lib/auth';
 
 export default function App() {
   // Supabase state
@@ -32,9 +33,14 @@ export default function App() {
   const [promosLoading, setPromosLoading] = useState<boolean>(true);
   const [postersLoading, setPostersLoading] = useState<boolean>(true);
 
-  // Admin auth state (Fase 4)
+  // Admin auth state
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('enlace_is_admin') === 'true';
+    try {
+      return isAdminTokenValid();
+    } catch (err) {
+      console.error('Error checking admin token:', err);
+      return false;
+    }
   });
 
   // Banner text
@@ -96,21 +102,38 @@ export default function App() {
     loadData();
   }, []);
 
-  // Admin Login Handler (Fase 4)
+  // Admin Login Handler
   const handleAdminLogin = (passcode: string): boolean => {
-    const validKeys = ['enlace2026', 'admin123', 'admin'];
-    if (validKeys.includes(passcode.trim().toLowerCase())) {
-      setIsAdmin(true);
-      localStorage.setItem('enlace_is_admin', 'true');
-      return true;
+    const correctPasscode = import.meta.env.VITE_ADMIN_PASSCODE || 'EnlaceSeguro2026';
+    const isValid = passcode.trim() === correctPasscode;
+
+    if (isValid) {
+      try {
+        const token = btoa(passcode + Date.now());
+        setAdminToken(token);
+        setIsAdmin(true);
+        showToastNotification('✅ Acceso Concedido', 'Modo de administración activado.');
+        return true;
+      } catch (err) {
+        console.error('Error setting admin token:', err);
+        showToastNotification('Error', 'No se pudo iniciar sesión de admin.', 'error');
+        return false;
+      }
+    } else {
+      showToastNotification('❌ Acceso Denegado', 'Contraseña incorrecta.', 'error');
+      return false;
     }
-    return false;
   };
 
   const handleAdminLogout = () => {
-    setIsAdmin(false);
-    localStorage.removeItem('enlace_is_admin');
-    showToastNotification('Sesión cerrada', 'Modo de administración bloqueado.');
+    try {
+      clearAdminToken();
+      setIsAdmin(false);
+      showToastNotification('Sesión cerrada', 'Modo de administración bloqueado.');
+    } catch (err) {
+      console.error('Error logging out:', err);
+      setIsAdmin(false);
+    }
   };
 
   // Promotions Management (Supabase REST)

@@ -1,6 +1,7 @@
 import { supabaseFetch } from '../lib/supabase';
 import { ContactMessage, Poster, Promotion } from '../types';
 import { INITIAL_POSTERS, INITIAL_PROMOTIONS } from '../data/initialData';
+import { validateContactForm, validatePromotion, validateEmail } from '../lib/validators';
 
 const LOCAL_PROMOS_KEY = 'enlace_promos_cache';
 const LOCAL_POSTERS_KEY = 'enlace_posters_cache';
@@ -175,12 +176,22 @@ export async function deletePosterFromSupabase(id: string | number): Promise<boo
 // ================= CONTACTS =================
 export async function sendContactToSupabase(
   contact: ContactMessage
-): Promise<{ success: boolean; error: Error | null }> {
+): Promise<{ success: boolean; error: Error | null; validationErrors?: Record<string, string> }> {
+  // Validate before sending
+  const validation = validateContactForm(contact);
+  if (!validation.valid) {
+    return {
+      success: false,
+      error: new Error('Validation failed'),
+      validationErrors: validation.errors,
+    };
+  }
+
   const payload = {
-    name: contact.name,
-    email: contact.email,
-    destination: contact.destination,
-    message: contact.message,
+    name: contact.name.trim(),
+    email: contact.email.trim().toLowerCase(),
+    destination: contact.destination.trim(),
+    message: contact.message.trim(),
     created_at: new Date().toISOString(),
   };
 
@@ -191,12 +202,14 @@ export async function sendContactToSupabase(
     });
 
     if (error) {
-      // Also try Spanish field naming if the backend table uses Spanish columns
+      console.warn('Contacts insert error (English schema):', error.message);
+
+      // Fallback: try Spanish field naming if the backend table uses Spanish columns
       const spanishPayload = {
-        nombre: contact.name,
-        correo: contact.email,
-        destino: contact.destination,
-        mensaje: contact.message,
+        nombre: payload.name,
+        correo: payload.email,
+        destino: payload.destination,
+        mensaje: payload.message,
         created_at: payload.created_at,
       };
       const retry = await supabaseFetch('contacts', {
@@ -206,12 +219,17 @@ export async function sendContactToSupabase(
 
       if (retry.error) {
         console.warn('Contacts insert error (both schemas tried):', retry.error.message);
+        return { success: false, error: retry.error };
       }
     }
 
     return { success: true, error: null };
   } catch (err: any) {
-    console.error('Failed to submit contact message to Supabase:', err);
-    return { success: true, error: null }; // Ensure good UX response for client
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error('Failed to submit contact message to Supabase:', errorMsg);
+    return {
+      success: false,
+      error: new Error(errorMsg),
+    };
   }
 }

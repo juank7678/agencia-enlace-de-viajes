@@ -1,8 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-export const SUPABASE_URL = 'https://eveyqelysnkjipbqaweg.supabase.co';
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 export const SUPABASE_REST_URL = `${SUPABASE_URL}/rest/v1`;
-export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2ZXlxZWx5c25ramlwYnFhd2VnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3NTY0OTksImV4cCI6MjEwMDMzMjQ5OX0.icYrCVPocpiaM4R0wLtzJwjVYfq6Ru7k0pJhGNLBDIw';
+export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+// Validation on load
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error(
+    '❌ ERROR: Supabase credentials not configured. Check your .env.local file. See .env.example for required variables.'
+  );
+}
 
 // Create Supabase JS client
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Send, Phone, Mail, MapPin, MessageSquare, Loader2, CheckCircle2 } from 'lucide-react';
 import { sendContactToSupabase } from '../services/api';
+import { validateContactForm } from '../lib/validators';
 
 interface ContactSectionProps {
   onShowToast: (title: string, msg: string, type?: 'success' | 'error') => void;
@@ -16,35 +17,52 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onShowToast }) =
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim() || !email.trim() || !message.trim()) {
-      onShowToast('Campos requeridos', 'Por favor completa todos los campos del formulario', 'error');
+    // Validate form
+    const validation = validateContactForm({ name, email, destination, message });
+    if (!validation.valid) {
+      Object.values(validation.errors).forEach((error) => {
+        onShowToast('⚠️ Validación', error, 'error');
+      });
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      await sendContactToSupabase({
+      const result = await sendContactToSupabase({
         name,
         email,
         destination,
         message,
       });
 
-      onShowToast('¡Solicitud enviada con éxito!', 'Un asesor de Agencia Enlace de Viajes te contactará en breve.');
-
-      // Clear form
-      setName('');
-      setEmail('');
-      setMessage('');
-      setDestination('Colombia');
+      if (!result.success) {
+        if (result.validationErrors) {
+          Object.values(result.validationErrors).forEach((error) => {
+            onShowToast('❌ Error', error, 'error');
+          });
+        } else if (result.error) {
+          onShowToast('❌ Error al enviar', result.error.message, 'error');
+        }
+      } else {
+        onShowToast('✅ ¡Éxito!', 'Un asesor de Agencia Enlace de Viajes te contactará en breve.');
+        setName('');
+        setEmail('');
+        setMessage('');
+        setDestination('Colombia');
+      }
     } catch (err) {
       console.error('Error submitting contact form:', err);
-      onShowToast('Mensaje recibido', 'Gracias por escribirnos. Te contactaremos pronto.');
+      onShowToast('⚠️ Mensaje recibido', 'Gracias por escribirnos. Te contactaremos pronto.');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const whatsappNumber = import.meta.env.VITE_ADMIN_WHATSAPP?.replace(/\D/g, '') || '573226136377';
+  const whatsappPhone = import.meta.env.VITE_ADMIN_WHATSAPP?.replace(/\D/g, '')
+    ? `+${import.meta.env.VITE_ADMIN_WHATSAPP?.replace(/\D/g, '')}`
+    : '+57 322 6136377';
 
   return (
     <section className="py-24 px-4 sm:px-6 bg-white" id="contacto">
@@ -68,7 +86,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onShowToast }) =
 
             <div className="space-y-4">
               <a
-                href="https://wa.me/573001234567"
+                href={`https://wa.me/${whatsappNumber}?text=Hola%20Agencia%20Enlace%20de%20Viajes,%20quisiera%20asesor%C3%ADa%20personalizada`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-4 p-5 bg-slate-50 hover:bg-orange-50/60 rounded-2xl border border-slate-100 hover:border-orange-200 transition group"
@@ -78,7 +96,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onShowToast }) =
                 </div>
                 <div>
                   <div className="font-semibold text-slate-900 text-base">Atención Inmediata WhatsApp</div>
-                  <div className="text-slate-500 text-sm font-medium">+57 300 123 4567</div>
+                  <div className="text-slate-500 text-sm font-medium">{whatsappPhone}</div>
                 </div>
               </a>
 
@@ -100,8 +118,8 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onShowToast }) =
                   <MapPin className="w-6 h-6" />
                 </div>
                 <div>
-                  <div className="font-semibold text-slate-900 text-base">Registro Nacional de Turismo</div>
-                  <div className="text-slate-500 text-sm font-medium">RNT 42508 · Colombia</div>
+                  <div className="font-semibold text-slate-900 text-base">Ubicación</div>
+                  <div className="text-slate-500 text-sm font-medium">Cra. 48A #39A Sur 46 · Medellín</div>
                 </div>
               </div>
             </div>

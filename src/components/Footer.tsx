@@ -1,7 +1,10 @@
 import React from 'react';
-import { ShieldCheck, Heart } from 'lucide-react';
+import { ShieldCheck, Heart, Phone, Mail, MapPin } from 'lucide-react';
 
 export const Footer: React.FC = () => {
+  const phoneNumber = import.meta.env.VITE_ADMIN_WHATSAPP || '+57 322 6136377';
+  const whatsappNumber = import.meta.env.VITE_ADMIN_WHATSAPP?.replace(/\D/g, '') || '573226136377';
+
   return (
     <footer className="bg-slate-950 text-white pt-16 pb-24 lg:pb-16 px-4 sm:px-6 border-t border-slate-900">
       <div className="max-w-7xl mx-auto">
@@ -87,6 +90,40 @@ export const Footer: React.FC = () => {
                 </a>
               </li>
             </ul>
+          </div>
+
+          {/* Col 4: Contact Info */}
+          <div>
+            <h4 className="font-serif font-bold text-base text-white mb-4">Contacto Directo</h4>
+            <div className="space-y-3 text-slate-400 text-sm">
+              <div className="flex items-start gap-3">
+                <Phone className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                <div>
+                  <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition block">
+                    {phoneNumber}
+                  </a>
+                  <span className="text-xs text-slate-500">WhatsApp & Llamadas</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Mail className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />
+                <div>
+                  <a href="mailto:info@enlacedeviajes.com" className="hover:text-orange-400 transition block">
+                    info@enlacedeviajes.com
+                  </a>
+                  <span className="text-xs text-slate-500">Email</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <MapPin className="w-4 h-4 text-teal-400 mt-0.5 shrink-0" />
+                <div>
+                  <div className="hover:text-teal-400 transition block">
+                    Cra. 48A #39A Sur 46
+                  </div>
+                  <span className="text-xs text-slate-500">Medellín, Colombia</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

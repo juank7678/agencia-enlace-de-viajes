@@ -26,10 +26,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdmin, bannerText
     <>
       {/* Top Banner */}
       <div className="bg-slate-900 text-slate-100 text-xs sm:text-sm py-2 px-4 text-center border-b border-slate-800 relative z-50">
-        <div
-          className="max-w-7xl mx-auto truncate"
-          dangerouslySetInnerHTML={{ __html: bannerText || defaultBanner }}
-        />
+        <div className="max-w-7xl mx-auto truncate text-slate-100">
+          {bannerText || defaultBanner}
+        </div>
       </div>
 
       {/* Main Navbar */}
