@@ -1,12 +1,19 @@
 import React from 'react';
-import { Tag, Trash2, MessageCircle, Plus, Loader2, Sparkles } from 'lucide-react';
+import { Tag, Trash2, MessageCircle, Plus, Loader2, Pencil, RefreshCw } from 'lucide-react';
 import { Promotion } from '../types';
+import { whatsappLink } from '../config';
+import { POSTER_FOLDERS } from '../data/initialData';
+
+const categoryLabel = (c: string) => POSTER_FOLDERS.find((f) => f.name === c)?.label ?? c;
 
 interface PromotionsProps {
   promotions: Promotion[];
   isLoading: boolean;
   isAdmin: boolean;
-  onDeletePromo: (id: string | number) => void;
+  offline: boolean;
+  onRetry: () => void;
+  onDeletePromo: (promo: Promotion) => void;
+  onEditPromo: (promo: Promotion) => void;
   onOpenAddPromoModal: () => void;
 }
 
@@ -14,7 +21,10 @@ export const Promotions: React.FC<PromotionsProps> = ({
   promotions,
   isLoading,
   isAdmin,
+  offline,
+  onRetry,
   onDeletePromo,
+  onEditPromo,
   onOpenAddPromoModal,
 }) => {
   return (
@@ -24,7 +34,7 @@ export const Promotions: React.FC<PromotionsProps> = ({
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold uppercase tracking-wider">
             <Tag className="w-3.5 h-3.5" />
-            <span>Ofertas Exclusivas Supabase</span>
+            <span>Ofertas Exclusivas</span>
           </div>
 
           <h2 className="font-serif text-3xl sm:text-5xl font-bold text-slate-900 leading-tight">
@@ -36,11 +46,20 @@ export const Promotions: React.FC<PromotionsProps> = ({
           </p>
         </div>
 
+        {offline && isAdmin && (
+          <div className="mb-8 max-w-2xl mx-auto flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+            <span>No se pudo conectar con la base de datos; se muestra la última versión guardada.</span>
+            <button onClick={onRetry} className="shrink-0 inline-flex items-center gap-1.5 font-semibold hover:text-amber-900">
+              <RefreshCw className="w-4 h-4" /> Reintentar
+            </button>
+          </div>
+        )}
+
         {/* Loading Spinner */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
             <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-            <span className="text-sm font-medium">Cargando promociones desde Supabase...</span>
+            <span className="text-sm font-medium">Cargando promociones...</span>
           </div>
         ) : promotions.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-slate-200/80 max-w-lg mx-auto shadow-sm">
@@ -68,6 +87,8 @@ export const Promotions: React.FC<PromotionsProps> = ({
                     <img
                       src={p.image}
                       alt={p.title}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
@@ -79,7 +100,7 @@ export const Promotions: React.FC<PromotionsProps> = ({
                     )}
 
                     <span className="absolute bottom-3 left-4 px-3 py-1 bg-slate-900/80 backdrop-blur-md text-slate-200 font-semibold text-[11px] rounded-full uppercase tracking-wider">
-                      {p.category}
+                      {categoryLabel(p.category)}
                     </span>
                   </div>
 
@@ -100,22 +121,30 @@ export const Promotions: React.FC<PromotionsProps> = ({
                       <span className="font-bold text-orange-600 text-lg sm:text-xl">{p.price}</span>
                     </div>
 
-                    {/* Admin Delete Action */}
                     {isAdmin && (
-                      <button
-                        onClick={() => onDeletePromo(p.id)}
-                        className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
-                        title="Eliminar promoción"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => onEditPromo(p)}
+                          className="p-2.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition"
+                          title="Editar promoción"
+                          aria-label={`Editar ${p.title}`}
+                        >
+                          <Pencil className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => onDeletePromo(p)}
+                          className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
+                          title="Eliminar promoción"
+                          aria-label={`Eliminar ${p.title}`}
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     )}
                   </div>
 
                   <a
-                    href={`https://wa.me/573001234567?text=${encodeURIComponent(
-                      `Hola Agencia Enlace de Viajes, quisiera consultar la promoción: *${p.title}* (${p.price})`
-                    )}`}
+                    href={whatsappLink(`Hola Agencia Enlace de Viajes, quisiera consultar la promoción: *${p.title}* (${p.price})`)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 shadow-md transition"

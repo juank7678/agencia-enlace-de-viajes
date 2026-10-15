@@ -9,6 +9,8 @@ export interface Promotion {
   created_at?: string;
 }
 
+export type PromotionInput = Omit<Promotion, 'id' | 'created_at'>;
+
 export interface Poster {
   id: string | number;
   title: string;
@@ -16,6 +18,8 @@ export interface Poster {
   image: string;
   created_at?: string;
 }
+
+export type PosterInput = Omit<Poster, 'id' | 'created_at'>;
 
 export interface ContactMessage {
   id?: string | number;
@@ -43,9 +47,4 @@ export interface PosterFolder {
   label: string;
   icon: string;
   color: string;
-}
-
-export interface AdminState {
-  isAuthenticated: boolean;
-  loginError: string | null;
 }

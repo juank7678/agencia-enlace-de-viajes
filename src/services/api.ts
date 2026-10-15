@@ -1,195 +1,143 @@
-import { supabase, supabaseFetch } from '../lib/supabase';
-import { ContactMessage, Poster, Promotion } from '../types';
-import { INITIAL_POSTERS, INITIAL_PROMOTIONS } from '../data/initialData';
-import { validateContactForm, validatePromotion, validateEmail } from '../lib/validators';
+import { supabase, describeError, isMissingRelation } from '../lib/supabase';
+import { ContactMessage, Poster, PosterInput, Promotion, PromotionInput } from '../types';
+import { validateContactForm } from '../lib/validators';
 
-const LOCAL_PROMOS_KEY = 'enlace_promos_cache';
-const LOCAL_POSTERS_KEY = 'enlace_posters_cache';
-
-// Load initial cached items for instant client-side rendering
-function getCached<T>(key: string, fallback: T): T {
-  try {
-    const cached = localStorage.getItem(key);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed as T;
-    }
-  } catch (err) {
-    console.warn(`Error reading local cache for ${key}`, err);
-  }
-  return fallback;
+export interface Result<T> {
+  data: T | null;
+  error: string | null;
 }
 
-function setCache<T>(key: string, data: T): void {
+const READ_TIMEOUT_MS = 10_000;
+const CACHE_KEYS = {
+  promotions: 'enlace_promos_cache',
+  posters: 'enlace_posters_cache',
+  banner: 'enlace_banner_text',
+} as const;
+
+// ================= CACHE LOCAL =================
+// Solo se usa para pintar al instante y como respaldo si Supabase no responde;
+// la fuente de verdad siempre es la base de datos.
+export function readCache<T>(key: keyof typeof CACHE_KEYS): T | null {
   try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (err) {
-    console.warn(`Error updating local cache for ${key}`, err);
+    const raw = localStorage.getItem(CACHE_KEYS[key]);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
   }
 }
 
-// ================= PROMOTIONS =================
-export async function getPromotionsFromSupabase(): Promise<Promotion[]> {
-  const localCache = getCached<Promotion[]>(LOCAL_PROMOS_KEY, INITIAL_PROMOTIONS);
-
+function writeCache(key: keyof typeof CACHE_KEYS, value: unknown): void {
   try {
-    // REST API query: GET /promotions?select=*&order=created_at.desc
-    const { data, error } = await supabaseFetch<Promotion[]>('promotions?select=*&order=created_at.desc');
-
-    if (!error && Array.isArray(data) && data.length > 0) {
-      setCache(LOCAL_PROMOS_KEY, data);
-      return data;
-    }
-  } catch (err) {
-    console.warn('Falling back to local cache/default for promotions', err);
-  }
-
-  return localCache;
-}
-
-export async function createPromotionInSupabase(
-  promo: Omit<Promotion, 'id' | 'created_at'>
-): Promise<{ promotion: Promotion | null; error: Error | null }> {
-  const newPromoData = {
-    ...promo,
-    created_at: new Date().toISOString(),
-  };
-
-  try {
-    // Use Supabase client (automatically includes JWT if user is authenticated)
-    const { data, error } = await supabase
-      .from('promotions')
-      .insert([newPromoData])
-      .select();
-
-    if (error) {
-      console.error('Supabase error creating promotion:', error.message);
-      return { promotion: null, error: new Error(error.message) };
-    }
-
-    if (data && data.length > 0) {
-      const created = data[0] as Promotion;
-      const current = getCached<Promotion[]>(LOCAL_PROMOS_KEY, INITIAL_PROMOTIONS);
-      setCache(LOCAL_PROMOS_KEY, [created, ...current]);
-      return { promotion: created, error: null };
-    }
-  } catch (err) {
-    console.error('Failed to create promotion in Supabase:', err);
-    return { promotion: null, error: err instanceof Error ? err : new Error(String(err)) };
-  }
-
-  return { promotion: null, error: new Error('No data returned') };
-}
-
-export async function deletePromotionFromSupabase(id: string | number): Promise<boolean> {
-  try {
-    const { error } = await supabase
-      .from('promotions')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting promotion:', error.message);
-      return false;
-    }
-
-    // Update local cache
-    const current = getCached<Promotion[]>(LOCAL_PROMOS_KEY, INITIAL_PROMOTIONS);
-    const filtered = current.filter((p) => String(p.id) !== String(id));
-    setCache(LOCAL_PROMOS_KEY, filtered);
-    return true;
-  } catch (err) {
-    console.error('Error deleting promotion from Supabase:', err);
-    return false;
+    localStorage.setItem(CACHE_KEYS[key], JSON.stringify(value));
+  } catch {
+    // Cuota llena o almacenamiento bloqueado: la caché es opcional.
   }
 }
 
-// ================= POSTERS =================
-export async function getPostersFromSupabase(): Promise<Poster[]> {
-  const localCache = getCached<Poster[]>(LOCAL_POSTERS_KEY, INITIAL_POSTERS);
+const ok = <T>(data: T): Result<T> => ({ data, error: null });
+const fail = <T>(error: Parameters<typeof describeError>[0]): Result<T> => ({ data: null, error: describeError(error) });
 
-  try {
-    // REST API query: GET /posters?select=*&order=created_at.desc
-    const { data, error } = await supabaseFetch<Poster[]>('posters?select=*&order=created_at.desc');
-
-    if (!error && Array.isArray(data) && data.length > 0) {
-      setCache(LOCAL_POSTERS_KEY, data);
-      return data;
-    }
-  } catch (err) {
-    console.warn('Falling back to local cache/default for posters', err);
-  }
-
-  return localCache;
+function clean<T extends Record<string, unknown>>(input: T): T {
+  return Object.fromEntries(
+    Object.entries(input).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])
+  ) as T;
 }
 
-export async function createPosterInSupabase(
-  poster: Omit<Poster, 'id' | 'created_at'>
-): Promise<{ poster: Poster | null; error: Error | null }> {
-  const newPosterData = {
-    ...poster,
-    created_at: new Date().toISOString(),
-  };
-
+// ================= LECTURAS =================
+async function fetchList<T>(table: 'promotions' | 'posters'): Promise<Result<T[]>> {
   try {
     const { data, error } = await supabase
-      .from('posters')
-      .insert([newPosterData])
-      .select();
-
-    if (error) {
-      console.error('Supabase error creating poster:', error.message);
-      return { poster: null, error: new Error(error.message) };
-    }
-
-    if (data && data.length > 0) {
-      const created = data[0] as Poster;
-      const current = getCached<Poster[]>(LOCAL_POSTERS_KEY, INITIAL_POSTERS);
-      setCache(LOCAL_POSTERS_KEY, [created, ...current]);
-      return { poster: created, error: null };
-    }
+      .from(table)
+      .select('*')
+      .order('created_at', { ascending: false })
+      .abortSignal(AbortSignal.timeout(READ_TIMEOUT_MS));
+    if (error) return fail(error);
+    writeCache(table, data);
+    return ok(data as T[]);
   } catch (err) {
-    console.error('Failed to create poster in Supabase:', err);
-    return { poster: null, error: err instanceof Error ? err : new Error(String(err)) };
-  }
-
-  return { poster: null, error: new Error('No data returned') };
-}
-
-export async function deletePosterFromSupabase(id: string | number): Promise<boolean> {
-  try {
-    const { error } = await supabase
-      .from('posters')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting poster:', error.message);
-      return false;
-    }
-
-    const current = getCached<Poster[]>(LOCAL_POSTERS_KEY, INITIAL_POSTERS);
-    const filtered = current.filter((p) => String(p.id) !== String(id));
-    setCache(LOCAL_POSTERS_KEY, filtered);
-    return true;
-  } catch (err) {
-    console.error('Error deleting poster from Supabase:', err);
-    return false;
+    return fail({ message: err instanceof Error ? err.message : String(err) });
   }
 }
 
-// ================= CONTACTS =================
-export async function sendContactToSupabase(
+export const fetchPromotions = () => fetchList<Promotion>('promotions');
+export const fetchPosters = () => fetchList<Poster>('posters');
+
+export async function fetchBanner(): Promise<Result<string>> {
+  const { data, error } = await supabase
+    .from('site_settings')
+    .select('value')
+    .eq('key', 'banner_text')
+    .maybeSingle();
+  if (error) return fail(error);
+  if (data?.value) writeCache('banner', data.value);
+  return ok(data?.value ?? '');
+}
+
+// ================= ESCRITURAS (ADMIN) =================
+// Con RLS, un UPDATE/DELETE sin permisos no da error: afecta 0 filas.
+// Por eso se pide la fila de vuelta y se valida que exista.
+const NO_ROWS = 'No se guardó ningún cambio: tu usuario no tiene permisos o el registro ya no existe.';
+
+async function insertRow<T>(table: 'promotions' | 'posters', input: Record<string, unknown>): Promise<Result<T>> {
+  const { data, error } = await supabase
+    .from(table)
+    .insert({ ...clean(input), created_at: new Date().toISOString() })
+    .select()
+    .single();
+  if (error) return fail(error);
+  return ok(data as T);
+}
+
+async function updateRow<T>(table: 'promotions' | 'posters', id: Promotion['id'], input: Record<string, unknown>): Promise<Result<T>> {
+  const { data, error } = await supabase.from(table).update(clean(input)).eq('id', id).select();
+  if (error) return fail(error);
+  if (!data?.length) return { data: null, error: NO_ROWS };
+  return ok(data[0] as T);
+}
+
+async function deleteRow(table: 'promotions' | 'posters', id: Promotion['id']): Promise<Result<true>> {
+  const { data, error } = await supabase.from(table).delete().eq('id', id).select('id');
+  if (error) return fail(error);
+  if (!data?.length) return { data: null, error: NO_ROWS };
+  return ok(true);
+}
+
+export const createPromotion = (input: PromotionInput) => insertRow<Promotion>('promotions', { ...input });
+export const updatePromotion = (id: Promotion['id'], input: PromotionInput) => updateRow<Promotion>('promotions', id, { ...input });
+export const deletePromotion = (id: Promotion['id']) => deleteRow('promotions', id);
+
+export const createPoster = (input: PosterInput) => insertRow<Poster>('posters', { ...input });
+export const updatePoster = (id: Poster['id'], input: PosterInput) => updateRow<Poster>('posters', id, { ...input });
+export const deletePoster = (id: Poster['id']) => deleteRow('posters', id);
+
+export async function saveBanner(text: string): Promise<Result<string>> {
+  const value = text.trim();
+  const { error } = await supabase
+    .from('site_settings')
+    .upsert({ key: 'banner_text', value, updated_at: new Date().toISOString() });
+  if (error) {
+    if (isMissingRelation(error)) {
+      return { data: null, error: 'Falta la tabla site_settings en Supabase. Ejecuta la migración de supabase/migrations.' };
+    }
+    return fail(error);
+  }
+  writeCache('banner', value);
+  return ok(value);
+}
+
+export async function isCurrentUserAdmin(): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc('is_admin');
+  if (error) return isMissingRelation(error) ? null : false; // null = migración pendiente
+  return data === true;
+}
+
+// ================= CONTACTOS =================
+export async function sendContact(
   contact: ContactMessage
-): Promise<{ success: boolean; error: Error | null; validationErrors?: Record<string, string> }> {
-  // Validate before sending
+): Promise<{ success: boolean; error: string | null; validationErrors?: Record<string, string> }> {
   const validation = validateContactForm(contact);
   if (!validation.valid) {
-    return {
-      success: false,
-      error: new Error('Validation failed'),
-      validationErrors: validation.errors,
-    };
+    return { success: false, error: 'Revisa los campos del formulario.', validationErrors: validation.errors };
   }
 
   const payload = {
@@ -200,41 +148,22 @@ export async function sendContactToSupabase(
     created_at: new Date().toISOString(),
   };
 
-  try {
-    const { error } = await supabaseFetch('contacts', {
-      method: 'POST',
-      body: JSON.stringify(payload),
+  // Sin .select(): el público puede insertar pero no leer contactos.
+  const { error } = await supabase.from('contacts').insert(payload);
+  if (!error) return { success: true, error: null };
+
+  // Compatibilidad con tablas creadas con columnas en español.
+  if (error.code === 'PGRST204') {
+    const retry = await supabase.from('contacts').insert({
+      nombre: payload.name,
+      correo: payload.email,
+      destino: payload.destination,
+      mensaje: payload.message,
+      created_at: payload.created_at,
     });
-
-    if (error) {
-      console.warn('Contacts insert error (English schema):', error.message);
-
-      // Fallback: try Spanish field naming if the backend table uses Spanish columns
-      const spanishPayload = {
-        nombre: payload.name,
-        correo: payload.email,
-        destino: payload.destination,
-        mensaje: payload.message,
-        created_at: payload.created_at,
-      };
-      const retry = await supabaseFetch('contacts', {
-        method: 'POST',
-        body: JSON.stringify(spanishPayload),
-      });
-
-      if (retry.error) {
-        console.warn('Contacts insert error (both schemas tried):', retry.error.message);
-        return { success: false, error: retry.error };
-      }
-    }
-
-    return { success: true, error: null };
-  } catch (err: any) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error('Failed to submit contact message to Supabase:', errorMsg);
-    return {
-      success: false,
-      error: new Error(errorMsg),
-    };
+    if (!retry.error) return { success: true, error: null };
+    return { success: false, error: describeError(retry.error) };
   }
+
+  return { success: false, error: describeError(error) };
 }

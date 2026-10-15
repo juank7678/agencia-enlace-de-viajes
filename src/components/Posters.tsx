@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, Image as ImageIcon, Upload, Trash2, Maximize2, Loader2, Sparkles } from 'lucide-react';
+import { Folder, Image as ImageIcon, Upload, Trash2, Maximize2, Loader2, Pencil } from 'lucide-react';
 import { Poster } from '../types';
 import { POSTER_FOLDERS } from '../data/initialData';
 
@@ -8,7 +8,8 @@ interface PostersProps {
   isLoading: boolean;
   isAdmin: boolean;
   onSelectImage: (src: string, title: string) => void;
-  onDeletePoster: (id: string | number) => void;
+  onDeletePoster: (poster: Poster) => void;
+  onEditPoster: (poster: Poster) => void;
   onOpenUploadPosterModal: () => void;
 }
 
@@ -18,6 +19,7 @@ export const Posters: React.FC<PostersProps> = ({
   isAdmin,
   onSelectImage,
   onDeletePoster,
+  onEditPoster,
   onOpenUploadPosterModal,
 }) => {
   const [activeFolder, setActiveFolder] = useState<string>('all');
@@ -45,10 +47,6 @@ export const Posters: React.FC<PostersProps> = ({
             Explora nuestra galería gráfica con los mejores flyers, paquetes y folletos oficiales de cada región.
           </p>
 
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-2xl font-mono text-xs text-slate-600 border border-slate-200">
-            <Folder className="w-4 h-4 text-orange-500" />
-            <span>assets/posters/</span>
-          </div>
         </div>
 
         {/* Poster Folders List */}
@@ -91,7 +89,7 @@ export const Posters: React.FC<PostersProps> = ({
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
             <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
-            <span className="text-sm font-medium">Cargando publicaciones desde Supabase...</span>
+            <span className="text-sm font-medium">Cargando publicaciones...</span>
           </div>
         ) : filteredPosters.length === 0 ? (
           <div className="text-center py-16 bg-slate-50 rounded-3xl border border-slate-200/80 max-w-lg mx-auto">
@@ -117,6 +115,8 @@ export const Posters: React.FC<PostersProps> = ({
                 <img
                   src={poster.image}
                   alt={poster.title}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover group-hover:scale-110 transition duration-700"
                 />
 
@@ -128,28 +128,44 @@ export const Posters: React.FC<PostersProps> = ({
                 </div>
 
                 {/* Maximize Icon */}
-                <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition transform group-hover:scale-110">
-                  <Maximize2 className="w-4 h-4" />
-                </div>
+                {!isAdmin && (
+                  <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition transform group-hover:scale-110">
+                    <Maximize2 className="w-4 h-4" />
+                  </div>
+                )}
 
                 {/* Caption */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                   <h4 className="font-serif font-bold text-base line-clamp-1">{poster.title}</h4>
-                  <p className="text-slate-300 text-xs mt-0.5">Haz clic para ampliaren pantalla completa</p>
+                  <p className="text-slate-300 text-xs mt-0.5">Haz clic para ampliar</p>
                 </div>
 
-                {/* Admin Delete Action */}
+                {/* Admin Actions */}
                 {isAdmin && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeletePoster(poster.id);
-                    }}
-                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg hover:bg-red-700 transition z-10"
-                    title="Eliminar poster"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="absolute top-3 right-3 flex gap-2 z-10">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditPoster(poster);
+                      }}
+                      className="w-9 h-9 rounded-full bg-white text-slate-800 flex items-center justify-center shadow-lg hover:bg-orange-50 transition"
+                      title="Editar poster"
+                      aria-label={`Editar ${poster.title}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeletePoster(poster);
+                      }}
+                      className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg hover:bg-red-700 transition"
+                      title="Eliminar poster"
+                      aria-label={`Eliminar ${poster.title}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 )}
               </div>
             ))}

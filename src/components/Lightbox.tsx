@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Download, Share2 } from 'lucide-react';
+import { whatsappLink } from '../config';
 
 interface LightboxProps {
   imageSrc: string | null;
@@ -22,7 +23,7 @@ export const Lightbox: React.FC<LightboxProps> = ({ imageSrc, title, onClose }) 
         console.log('Share canceled', err);
       }
     } else {
-      window.open(`https://wa.me/573001234567?text=${encodeURIComponent('Hola, me interesa este paquete: ' + (title || ''))}`, '_blank');
+      window.open(whatsappLink(`Hola, me interesa este paquete: ${title || ''}`), '_blank', 'noopener,noreferrer');
     }
   };
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Send, Phone, Mail, MapPin, MessageSquare, Loader2, CheckCircle2 } from 'lucide-react';
-import { sendContactToSupabase } from '../services/api';
+import { sendContact } from '../services/api';
+import { PHONE_DISPLAY, whatsappLink } from '../config';
 import { validateContactForm } from '../lib/validators';
 
 interface ContactSectionProps {
@@ -20,49 +21,25 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onShowToast }) =
     // Validate form
     const validation = validateContactForm({ name, email, destination, message });
     if (!validation.valid) {
-      Object.values(validation.errors).forEach((error) => {
-        onShowToast('⚠️ Validación', error, 'error');
-      });
+      onShowToast('⚠️ Revisa el formulario', Object.values(validation.errors)[0], 'error');
       return;
     }
 
     setIsSubmitting(true);
 
-    try {
-      const result = await sendContactToSupabase({
-        name,
-        email,
-        destination,
-        message,
-      });
+    const result = await sendContact({ name, email, destination, message });
+    setIsSubmitting(false);
 
-      if (!result.success) {
-        if (result.validationErrors) {
-          Object.values(result.validationErrors).forEach((error) => {
-            onShowToast('❌ Error', error, 'error');
-          });
-        } else if (result.error) {
-          onShowToast('❌ Error al enviar', result.error.message, 'error');
-        }
-      } else {
-        onShowToast('✅ ¡Éxito!', 'Un asesor de Agencia Enlace de Viajes te contactará en breve.');
-        setName('');
-        setEmail('');
-        setMessage('');
-        setDestination('Colombia');
-      }
-    } catch (err) {
-      console.error('Error submitting contact form:', err);
-      onShowToast('⚠️ Mensaje recibido', 'Gracias por escribirnos. Te contactaremos pronto.');
-    } finally {
-      setIsSubmitting(false);
+    if (!result.success) {
+      onShowToast('❌ No se pudo enviar', result.error ?? 'Intenta de nuevo o escríbenos por WhatsApp.', 'error');
+      return;
     }
+    onShowToast('✅ ¡Mensaje enviado!', 'Un asesor de Agencia Enlace de Viajes te contactará en breve.');
+    setName('');
+    setEmail('');
+    setMessage('');
+    setDestination('Colombia');
   };
-
-  const whatsappNumber = import.meta.env.VITE_ADMIN_WHATSAPP?.replace(/\D/g, '') || '573226136377';
-  const whatsappPhone = import.meta.env.VITE_ADMIN_WHATSAPP?.replace(/\D/g, '')
-    ? `+${import.meta.env.VITE_ADMIN_WHATSAPP?.replace(/\D/g, '')}`
-    : '+57 322 6136377';
 
   return (
     <section className="py-24 px-4 sm:px-6 bg-white" id="contacto">
@@ -86,7 +63,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onShowToast }) =
 
             <div className="space-y-4">
               <a
-                href={`https://wa.me/${whatsappNumber}?text=Hola%20Agencia%20Enlace%20de%20Viajes,%20quisiera%20asesor%C3%ADa%20personalizada`}
+                href={whatsappLink('Hola Agencia Enlace de Viajes, quisiera asesoría personalizada')}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-4 p-5 bg-slate-50 hover:bg-orange-50/60 rounded-2xl border border-slate-100 hover:border-orange-200 transition group"
@@ -96,7 +73,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onShowToast }) =
                 </div>
                 <div>
                   <div className="font-semibold text-slate-900 text-base">Atención Inmediata WhatsApp</div>
-                  <div className="text-slate-500 text-sm font-medium">{whatsappPhone}</div>
+                  <div className="text-slate-500 text-sm font-medium">{PHONE_DISPLAY}</div>
                 </div>
               </a>
 
