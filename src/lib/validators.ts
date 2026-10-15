@@ -1,5 +1,3 @@
-import { ContactMessage } from '../types';
-
 export const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const phoneRegex = /^(\+\d{1,3})?(\s|-)?\d{9,14}$/;
@@ -46,12 +44,6 @@ export function validateContactForm(data: {
     valid: Object.keys(errors).length === 0,
     errors,
   };
-}
-
-export function sanitizeHTML(html: string): string {
-  const div = document.createElement('div');
-  div.textContent = html;
-  return div.innerHTML;
 }
 
 export function validatePromotion(data: {

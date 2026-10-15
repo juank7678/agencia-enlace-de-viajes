@@ -1,5 +1,6 @@
 import React from 'react';
 import { MessageCircle, Mail, Compass } from 'lucide-react';
+import { whatsappLink } from '../config';
 
 export const CTASection: React.FC = () => {
   return (
@@ -29,7 +30,7 @@ export const CTASection: React.FC = () => {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
           <a
-            href="https://wa.me/573001234567?text=Hola%20Agencia%20Enlace%20de%20Viajes,%20tengo%20un%20plan%20a%20la%20medida%20en%20mente"
+            href={whatsappLink('Hola Agencia Enlace de Viajes, tengo un plan a la medida en mente')}
             target="_blank"
             rel="noopener noreferrer"
             className="w-full sm:w-auto px-8 py-4 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold text-base shadow-xl shadow-orange-500/20 flex items-center justify-center gap-2.5 transition transform hover:-translate-y-0.5"

@@ -1,9 +1,8 @@
 import React from 'react';
 import { ShieldCheck, Heart, Phone, Mail, MapPin } from 'lucide-react';
+import { PHONE_DISPLAY, whatsappLink } from '../config';
 
 export const Footer: React.FC = () => {
-  const phoneNumber = import.meta.env.VITE_ADMIN_WHATSAPP || '+57 322 6136377';
-  const whatsappNumber = import.meta.env.VITE_ADMIN_WHATSAPP?.replace(/\D/g, '') || '573226136377';
 
   return (
     <footer className="bg-slate-950 text-white pt-16 pb-24 lg:pb-16 px-4 sm:px-6 border-t border-slate-900">
@@ -99,8 +98,8 @@ export const Footer: React.FC = () => {
               <div className="flex items-start gap-3">
                 <Phone className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
                 <div>
-                  <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition block">
-                    {phoneNumber}
+                  <a href={whatsappLink('Hola Agencia Enlace de Viajes')} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition block">
+                    {PHONE_DISPLAY}
                   </a>
                   <span className="text-xs text-slate-500">WhatsApp & Llamadas</span>
                 </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Clock, CheckCircle2, MessageCircle, Calendar } from 'lucide-react';
 import { Destination } from '../types';
+import { whatsappLink } from '../config';
 
 interface DestinationModalProps {
   destination: Destination | null;
@@ -12,7 +13,7 @@ export const DestinationModal: React.FC<DestinationModalProps> = ({ destination,
 
   const handleWhatsAppBooking = () => {
     const text = `Hola Agencia Enlace de Viajes! 👋 Me interesa cotizar el paquete: *${destination.title}* (${destination.price}). ¿Me pueden brindar más información sobre disponibilidad y fechas?`;
-    window.open(`https://wa.me/573001234567?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(whatsappLink(text), '_blank', 'noopener,noreferrer');
   };
 
   return (

@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, MessageCircle, Settings, ShieldCheck, Lock, Unlock } from 'lucide-react';
+import { Menu, X, MessageCircle, Settings, ShieldCheck, Unlock, Pencil } from 'lucide-react';
+import { DEFAULT_BANNER, whatsappLink } from '../config';
+import { toSafeInlineHtml } from '../lib/html';
 
 interface NavbarProps {
   onOpenAdmin: () => void;
+  onEditBanner: () => void;
   isAdmin: boolean;
   bannerText?: string;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdmin, bannerText }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, onEditBanner, isAdmin, bannerText }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -15,19 +18,31 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdmin, bannerText
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 30);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const defaultBanner =
-    '🌟 <strong>OFERTA ESPECIAL:</strong> 20% de descuento en paquetes al Caribe Colombiano · Código: <strong>CARIBE2026</strong> · Válido hasta el 31 de agosto';
+  const bannerHtml = toSafeInlineHtml(bannerText || DEFAULT_BANNER);
 
   return (
     <>
-      {/* Top Banner */}
-      <div className="bg-slate-900 text-slate-100 text-xs sm:text-sm py-2 px-4 text-center border-b border-slate-800 relative z-50">
-        <div className="max-w-7xl mx-auto truncate text-slate-100">
-          {bannerText || defaultBanner}
+      {/* Top Banner: ocupa todo el ancho y el texto se ajusta en varias líneas en lugar de recortarse */}
+      <div className="relative z-50 w-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-slate-100 border-b border-slate-800">
+        <div className="flex w-full items-center justify-center gap-3 px-4 sm:px-8 py-2.5">
+          <p
+            className="flex-1 text-center text-xs sm:text-sm leading-snug text-balance [&_strong]:font-semibold [&_strong]:text-amber-300 [&_b]:text-amber-300"
+            dangerouslySetInnerHTML={{ __html: bannerHtml }}
+          />
+          {isAdmin && (
+            <button
+              onClick={onEditBanner}
+              className="shrink-0 p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition"
+              title="Editar banner"
+              aria-label="Editar banner"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -97,14 +112,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdmin, bannerText
                   ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300 ring-2 ring-emerald-500/20'
                   : 'bg-slate-100 text-slate-600 hover:bg-orange-100 hover:text-orange-600'
               }`}
-              title={isAdmin ? 'Modo Administración Activo' : 'Ingresar Clave de Administración'}
+              title={isAdmin ? 'Modo Administración Activo' : 'Acceso administrador'}
+              aria-label={isAdmin ? 'Abrir panel de administración' : 'Acceso administrador'}
             >
               {isAdmin ? <Unlock className="w-4 h-4 text-emerald-600" /> : <Settings className="w-4 h-4" />}
             </button>
 
             {/* WhatsApp CTA */}
             <a
-              href="https://wa.me/573001234567?text=Hola%20Agencia%20Enlace%20de%20Viajes,%20me%20gustar%C3%ADa%20cotizar%20un%20viaje"
+              href={whatsappLink('Hola Agencia Enlace de Viajes, me gustaría cotizar un viaje')}
               target="_blank"
               rel="noopener noreferrer"
               className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold text-sm shadow-md shadow-orange-500/20 transition transform hover:-translate-y-0.5"
@@ -201,11 +217,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdmin, bannerText
                 className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium rounded-xl text-xs flex items-center justify-center gap-2 transition"
               >
                 <Settings className="w-4 h-4 text-slate-600" />
-                <span>{isAdmin ? 'Panel de Control Admin' : 'Ingresar Clave Administrador'}</span>
+                <span>{isAdmin ? 'Panel de Control Admin' : 'Acceso Administrador'}</span>
               </button>
 
               <a
-                href="https://wa.me/573001234567?text=Hola%20Agencia%20Enlace%20de%20Viajes,%20quisiera%20cotizar"
+                href={whatsappLink('Hola Agencia Enlace de Viajes, quisiera cotizar')}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 shadow-md transition"

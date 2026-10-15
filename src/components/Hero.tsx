@@ -1,12 +1,13 @@
 import React from 'react';
 import { Compass, MessageCircle, Star, ShieldCheck, Award, MapPin } from 'lucide-react';
+import { whatsappLink } from '../config';
 
 export const Hero: React.FC = () => {
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-slate-950 py-20 px-4 sm:px-6">
       {/* Background Image with Overlay */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-105 animate-pulse-slow opacity-40"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-105 opacity-40"
         style={{
           backgroundImage: `url('https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=2000&q=80')`,
         }}
@@ -50,7 +51,7 @@ export const Hero: React.FC = () => {
               </a>
 
               <a
-                href="{`https://wa.me/${import.meta.env.VITE_ADMIN_WHATSAPP?.replace(/\D/g, '') || '573226136377'}?text=Hola%20Agencia%20Enlace%20de%20Viajes,%20quisiera%20asesor%C3%ADa%20personalizada`}"
+                href={whatsappLink('Hola Agencia Enlace de Viajes, quisiera asesoría personalizada')}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-8 py-4 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 font-semibold text-base flex items-center justify-center gap-2.5 transition transform hover:-translate-y-1"

@@ -1,6 +1,0 @@
-{
-  "name": "Agencia Enlace de Viajes",
-  "description": "Plataforma web de viajes y turismo con gestión de promociones, posters y contactos en Supabase.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
