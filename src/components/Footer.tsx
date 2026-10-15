@@ -13,7 +13,7 @@ export const Footer: React.FC = () => {
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 p-0.5 border border-amber-500/30">
                 <img
-                  src="/logo.jpg"
+                  src="/logo.svg"
                   alt="Agencia Enlace de Viajes"
                   className="w-full h-full object-cover rounded-lg"
                 />

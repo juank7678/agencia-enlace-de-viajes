@@ -47,5 +47,5 @@ src/
   lib/images.ts           compresión y subida de imágenes
   lib/html.ts             HTML seguro para el banner
 supabase/migrations/      SQL versionado
-docs/historial/           documentación de fases anteriores
+*.md (raíz)               documentación de fases anteriores
 ```

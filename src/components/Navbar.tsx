@@ -59,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, onEditBanner, isAdm
           <a href="#inicio" className="flex items-center gap-3 group">
             <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center p-0.5 shadow-md border border-amber-500/30 group-hover:scale-105 transition">
               <img
-                src="/logo.jpg"
+                src="/logo.svg"
                 alt="Agencia Enlace de Viajes Logo"
                 className="w-full h-full object-cover rounded-lg"
                 onError={(e) => {
@@ -148,7 +148,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, onEditBanner, isAdm
             <div>
               <div className="flex items-center justify-between pb-6 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-lg object-cover" />
+                  <img src="/logo.svg" alt="Logo" className="w-10 h-10 rounded-lg object-cover" />
                   <div>
                     <div className="font-serif font-bold text-slate-900">Enlace de Viajes</div>
                     <div className="text-xs text-slate-500">RNT 42508</div>
